@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -37,6 +38,19 @@ public class CambioMonedaServicio {
                 .distinct()
                 .sorted()
                 .collect(Collectors.toList());
+    }
+
+    public static List<CambioMoneda> filtrar(List<CambioMoneda> cambios,
+            String moneda, LocalDate desde, LocalDate hasta) {
+        return cambios.stream()
+                .filter(item -> item.getMoneda().equals(moneda) &&
+                        !(item.getFecha().isAfter(hasta) || item.getFecha().isBefore(desde)))
+                .collect(Collectors.toList());
+    }
+
+    public static Map<LocalDate, Double> extraerDatosGrafica(List<CambioMoneda> cambios) {
+        return cambios.stream()
+                .collect(Collectors.toMap(CambioMoneda::getFecha, CambioMoneda::getCambio));
     }
 
 }

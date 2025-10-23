@@ -13,13 +13,22 @@ import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JToolBar;
 import javax.swing.WindowConstants;
 
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.data.time.Day;
+import org.jfree.data.time.TimeSeries;
+import org.jfree.data.time.TimeSeriesCollection;
+
 import datechooser.beans.DateChooserCombo;
+import entidades.CambioMoneda;
 import servicios.CambioMonedaServicio;
 
 public class FrmCambiosMonedas extends JFrame {
@@ -29,6 +38,8 @@ public class FrmCambiosMonedas extends JFrame {
     private JTabbedPane tpCambiosMoneda;
     private JPanel pnlGrafica;
     private JPanel pnlEstadisticas;
+
+    private List<CambioMoneda> cambios;
 
     public FrmCambiosMonedas() {
 
@@ -104,10 +115,10 @@ public class FrmCambiosMonedas extends JFrame {
 
     private void cargarDatos() {
         String nombreArchivo = System.getProperty("user.dir") + "/src/datos/Cambios Monedas.csv";
-        var cambios = CambioMonedaServicio.getDatos(nombreArchivo);
-        var monedas= CambioMonedaServicio.getMonedas(cambios);
+        cambios = CambioMonedaServicio.getDatos(nombreArchivo);
+        var monedas = CambioMonedaServicio.getMonedas(cambios);
 
-        DefaultComboBoxModel modelo=new DefaultComboBoxModel(monedas.toArray());
+        DefaultComboBoxModel modelo = new DefaultComboBoxModel(monedas.toArray());
         cmbMoneda.setModel(modelo);
     }
 
@@ -117,6 +128,39 @@ public class FrmCambiosMonedas extends JFrame {
             String moneda = (String) cmbMoneda.getSelectedItem();
             LocalDate desde = dccDesde.getSelectedDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
             LocalDate hasta = dccHasta.getSelectedDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+
+            if (moneda.isEmpty() && desde.isAfter(hasta)) {
+                JOptionPane.showMessageDialog(null, "Datos no válidos");
+                return;
+            }
+
+            var datosGrafica = CambioMonedaServicio
+                    .extraerDatosGrafica(CambioMonedaServicio.filtrar(cambios, moneda, desde, hasta));
+
+            TimeSeries serie = new TimeSeries("Cambio en USD de " + moneda);
+            for (var item : datosGrafica.entrySet()) {
+                var fecha = item.getKey();
+                serie.addOrUpdate(new Day(fecha.getDayOfMonth(), fecha.getMonthValue(), fecha.getYear()),
+                        item.getValue());
+            }
+
+            TimeSeriesCollection series = new TimeSeriesCollection();
+            series.addSeries(serie);
+
+            JFreeChart graficador = ChartFactory.createTimeSeriesChart(
+                    "Gráfica de Cambio de " + moneda + " vs Fecha",
+                    "Fecha",
+                    "Cambio en USD",
+                    series);
+
+            ChartPanel pnlGraficador=new ChartPanel(graficador);
+            pnlGraficador.setPreferredSize(new Dimension(600, 400));
+
+            pnlGrafica.removeAll();
+            pnlGrafica.setLayout(new BorderLayout());
+            pnlGrafica.add(pnlGraficador, BorderLayout.CENTER);
+            pnlGrafica.revalidate();
+
 
             // Cambiar a la pestaña de Grafica
             tpCambiosMoneda.setSelectedIndex(0);
